@@ -16,8 +16,10 @@ FROM quay.io/pypa/manylinux2014_x86_64
 
 # Clang needs to be able to find python3
 RUN set -e -x -v; \
-	ln -s /opt/python/cp38-cp38/bin/python /usr/bin/python3
+	ln -s /opt/python/cp38-cp38/bin/python /usr/bin/python3;
 
+
+# Build libfuzzer
 RUN set -e -x -v; \
 	yum install -y cmake;
 
@@ -33,6 +35,36 @@ RUN set -e -x -v; \
 	cd /root/llvm-project/build; \
 	make compiler-rt;
 
+
+# # Now build LibAFL
+# RUN set -e -x -v; \
+# 	yum install -y curl;
+
+# # Get Rust
+# RUN set -e -x -v; \
+# 	cd /root; \
+# 	curl https://sh.rustup.rs -sSf | sh -s -- -y;
+
+# # Add .cargo/bin to PATH
+# ENV PATH="/root/.cargo/bin:${PATH}";
+
+# RUN set -e -x -v; \
+# 	cd /root; \
+# 	git clone https://github.com/AFLplusplus/LibAFL.git;
+
+# RUN set -e -x -v; \
+# 	cd /root/LibAFL; \
+# 	git checkout b090bc7b4bd1ed5095205307779494099e717bbe; \
+# RUN set -e -x -v; \
+# 	cd /root/LibAFL/fuzzers/libafl_atheris; \
+# 	cargo build --release;
+
+# # Build deexit tool
+# RUN set -e -x -v; \
+# 	cd /root/LibAFL; \
+# 	cargo build --release -p deexit;
+
+
 RUN set -e -x -v; \
 	python3 -m pip install auditwheel;
 
@@ -47,3 +79,15 @@ CMD export LIBFUZZER_LIB="/root/llvm-project/build/lib/clang/$(ls /root/llvm-pro
 	/opt/python/cp311-cp311/bin/python3 setup.py bdist_wheel -d /tmp/dist && \
 	( cd /tmp/dist && find /tmp/dist/* | xargs -I{} auditwheel repair --plat manylinux2014_x86_64 {} ) && \
 	mkdir -p /atheris/dist && cp /tmp/dist/wheelhouse/* /atheris/dist/
+
+# # CMD for building with LibAFL
+# CMD export LIBFUZZER_LIB="/root/llvm-project/build/lib/clang/$(ls /root/llvm-project/build/lib/clang/)/lib/x86_64-unknown-linux-gnu/libclang_rt.fuzzer_no_main.a"; \
+# 	export LIBAFL_LIB="/root/LibAFL/fuzzers/libafl_atheris/target/release/libafl_atheris.a"; \
+# 	/opt/python/cp36-cp36m/bin/python3 setup.py bdist_wheel -d /tmp/dist && \
+# 	/opt/python/cp37-cp37m/bin/python3 setup.py bdist_wheel -d /tmp/dist && \
+# 	/opt/python/cp38-cp38/bin/python3 setup.py bdist_wheel -d /tmp/dist && \
+# 	/opt/python/cp39-cp39/bin/python3 setup.py bdist_wheel -d /tmp/dist && \
+# 	/opt/python/cp310-cp310/bin/python3 setup.py bdist_wheel -d /tmp/dist && \
+# 	/opt/python/cp311-cp311/bin/python3 setup.py bdist_wheel -d /tmp/dist && \
+# 	( cd /tmp/dist && find /tmp/dist/* | xargs -I{} auditwheel repair --plat manylinux2014_x86_64 {} ) && \
+# 	mkdir -p /atheris/dist && cp /tmp/dist/wheelhouse/* /atheris/dist/
