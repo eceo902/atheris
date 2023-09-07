@@ -133,14 +133,6 @@ int TestOneInput(const uint8_t* data, size_t size) {
   static bool dummy = OnFirstTestOneInput();
   (void)dummy;
   RefreshTimeout();
-  const auto alloc = AllocateCountersAndPcs();
-  if (alloc.counters_start && alloc.counters_end) {
-    __sanitizer_cov_8bit_counters_init(alloc.counters_start,
-                                       alloc.counters_end);
-  }
-  if (alloc.pctable_start && alloc.pctable_end) {
-    __sanitizer_cov_pcs_init(alloc.pctable_start, alloc.pctable_end);
-  }
 
   try {
     test_one_input_global(py::bytes(reinterpret_cast<const char*>(data), size));
@@ -180,6 +172,15 @@ int TestOneInput(const uint8_t* data, size_t size) {
 NO_SANITIZE
 void start_fuzzing(const std::vector<std::string>& args,
                    const std::function<void(py::bytes data)>& test_one_input) {
+  const auto alloc = AllocateCountersAndPcs();
+  if (alloc.counters_start && alloc.counters_end) {
+    __sanitizer_cov_8bit_counters_init(alloc.counters_start,
+                                       alloc.counters_end);
+  }
+  if (alloc.pctable_start && alloc.pctable_end) {
+    __sanitizer_cov_pcs_init(alloc.pctable_start, alloc.pctable_end);
+  }
+
   test_one_input_global = test_one_input;
 
   bool registered_alarm = SetupPythonSigaction();
