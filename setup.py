@@ -346,13 +346,21 @@ class BuildExt(build_ext):
   """A custom build extension for adding compiler-specific options."""
 
   def build_extensions(self):
-    libafl = get_libafl_lib()
-    orig_libafl_name = os.path.basename(libafl)
-
     libfuzzer = get_libfuzzer_lib()
     orig_libfuzzer = libfuzzer
     orig_libfuzzer_name = os.path.basename(libfuzzer)
     version = check_libfuzzer_version(libfuzzer)
+
+    fuzzer = libfuzzer
+    orig_fuzzer_name = orig_libfuzzer_name
+
+    # Only use LibAFL if the environment variable is set
+    enable_libafl = os.getenv("ENABLE_LIBAFL", "")
+    if enable_libafl:
+      libafl = get_libafl_lib()
+      orig_libafl_name = os.path.basename(libafl)
+      fuzzer = libafl
+      orig_fuzzer_name = orig_libafl_name
 
     if sys.platform == "darwin" and version != "up-to-date":
       raise RuntimeError(too_old_error)
@@ -400,28 +408,28 @@ class BuildExt(build_ext):
                            ("ATHERIS_MODULE_NAME", ext.name.split(".")[1])]
       ext.extra_compile_args = c_opts
       if ext.name == "atheris.core_with_libfuzzer":
-        ext.extra_link_args = l_opts + [libafl]
+        ext.extra_link_args = l_opts + [fuzzer]
       else:
         ext.extra_link_args = l_opts
     build_ext.build_extensions(self)
 
     try:
-      self.deploy_file(libafl, orig_libafl_name)
+      self.deploy_file(fuzzer, orig_fuzzer_name)
     except Exception as e:
       sys.stderr.write(str(e))
       sys.stderr.write("\n")
 
     # Deploy versions of ASan and UBSan that have been merged with the fuzzer
-    asan_name = orig_libfuzzer.replace("libafl_atheris.a", ".asan")
+    asan_name = orig_libfuzzer.replace(".fuzzer_no_main", ".asan")
     merged_asan_name = "asan_with_fuzzer.so"
     self.merge_deploy_fuzzer_sanitizer(
-        libafl, asan_name, merged_asan_name,
+        fuzzer, asan_name, merged_asan_name,
         "asan_preinit.cc.o asan_preinit.cpp.o")
 
     ubsan_name = orig_libfuzzer.replace(".fuzzer_no_main", ".ubsan_standalone")
     merged_ubsan_name = "ubsan_with_fuzzer.so"
     self.merge_deploy_fuzzer_sanitizer(
-        libafl, ubsan_name, merged_ubsan_name,
+        fuzzer, ubsan_name, merged_ubsan_name,
         "ubsan_init_standalone_preinit.cc.o ubsan_init_standalone_preinit.cpp.o"
     )
 
@@ -429,7 +437,7 @@ class BuildExt(build_ext):
                                           ".ubsan_standalone_cxx")
     merged_ubsanxx_name = "ubsan_cxx_with_fuzzer.so"
     self.merge_deploy_fuzzer_sanitizer(
-        libafl, ubsanxx_name, merged_ubsanxx_name,
+        fuzzer, ubsanxx_name, merged_ubsanxx_name,
         "ubsan_init_standalone_preinit.cc.o ubsan_init_standalone_preinit.cpp.o"
     )
 
